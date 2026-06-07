@@ -32,8 +32,8 @@ from steer.evaluate.prompt_templates import (
     FLUENCY_TEMPLATE
 )
 
-API_KEY = os.environ.get('API_KEY') 
-BASE_URL = os.environ.get('BASE_URL')
+API_KEY = "sk-d831a89719f94edfa0b0425fe3af873c"
+BASE_URL = "https://api.deepseek.com/v1"
 openai.default_headers = {"x-foo": "true"}
 
 
@@ -544,7 +544,7 @@ class Evaluator:
         
     def _llm_evaluate(self ,concept, results: List[Dict]) -> Dict:
 
-        async def _llm_judge_async(client, content, min_score=0.0, max_score=2.0):
+        async def _llm_judge_async(client, content, min_score=0.0, max_score=4.0):
             output = None
             score = 0
             times = 0
@@ -648,8 +648,9 @@ class Evaluator:
             'instruction_scores': instruction_scores,
             'fluency_scores': fluency_scores,
             'aggregated_ratings': aggregated_ratings,
-            'mean_aggregated_rating': mean_aggregated_rating
-        }
+            'mean_aggregated_rating': mean_aggregated_rating,
+            'all_contents': all_scores
+            }
         return metrics
         
     def _harmonic_mean(self,scores):
@@ -671,7 +672,7 @@ if __name__ == "__main__":
                       help="Device to run on, e.g. 'cuda' or 'cpu'")
     parser.add_argument("--model_name_or_path", type=str, default=None,
                       help="Model name or path")
-    parser.add_argument('--llm_model',  type=str, default="deepseek-v3-241226" ,
+    parser.add_argument('--llm_model',  type=str, default="deepseek-v4-pro" ,
                         help="The model name of the LLM model api")
     parser.add_argument('--concept',  type=str, default=None,
                         help="The concept to evaluate the generated text")

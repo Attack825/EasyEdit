@@ -115,7 +115,7 @@ class BaseEditor:
                 self.model = AutoModel.from_pretrained(self.model_name,trust_remote_code=True, **model_kwargs)
                 self.tok = AutoTokenizer.from_pretrained(self.model_name,trust_remote_code=True)
                 self.tok.pad_token_id = self.tok.eos_token_id
-            elif 'qwen2' in self.model_name.lower() or 'qwen3' in self.model_name.lower():
+            elif 'qwen2' in self.model_name.lower():
                 self.model = AutoModelForCausalLM.from_pretrained(self.model_name,trust_remote_code=True, torch_dtype=torch_dtype if hparams.alg_name not in ['MEND'] else torch.bfloat16, device_map=device_map)
                 self.tok = AutoTokenizer.from_pretrained(self.model_name, eos_token='<|endoftext|>', pad_token='<|endoftext|>',unk_token='<|endoftext|>', trust_remote_code=True)
             elif 'qwen' in self.model_name.lower():
@@ -128,10 +128,10 @@ class BaseEditor:
             else:
                 raise NotImplementedError
 
-            if self.tok is not None and (isinstance(self.tok, GPT2Tokenizer) or isinstance(self.tok, GPT2TokenizerFast) or isinstance(self.tok, LlamaTokenizer) or isinstance(self.tok, LlamaTokenizerFast) or isinstance(self.tok, PreTrainedTokenizerFast)) and (hparams.alg_name not in ['ROME', 'MEMIT', 'EMMET', 'R-ROME','AlphaEdit','CORE', 'SPHERE']):
+            if self.tok is not None and (isinstance(self.tok, GPT2Tokenizer) or isinstance(self.tok, GPT2TokenizerFast) or isinstance(self.tok, LlamaTokenizer) or isinstance(self.tok, LlamaTokenizerFast) or isinstance(self.tok, PreTrainedTokenizerFast)) and (hparams.alg_name not in ['ROME', 'MEMIT', 'EMMET', 'R-ROME','AlphaEdit','CORE']):
                 LOG.info('AutoRegressive Model detected, set the padding side of Tokenizer to left...')
                 self.tok.padding_side = 'left'
-            if self.tok is not None and ('mistral' in self.model_name.lower() or 'llama' in self.model_name.lower() or 'qwen' in self.model_name.lower()) and (hparams.alg_name in ['ROME', 'MEMIT', 'EMMET', 'R-ROME','AlphaEdit', 'CORE', 'SPHERE']):
+            if self.tok is not None and ('mistral' in self.model_name.lower() or 'llama' in self.model_name.lower() or 'qwen' in self.model_name.lower()) and (hparams.alg_name in ['ROME', 'MEMIT', 'EMMET', 'R-ROME','AlphaEdit', 'CORE']):
                 LOG.info('AutoRegressive Model detected, set the padding side of Tokenizer to right...')
                 self.tok.padding_side = 'right'
         else:
@@ -222,14 +222,6 @@ class BaseEditor:
         assert hasattr(self.hparams, 'batch_size'), f'Method {self.alg_name} found, pls specify the batch_size....'
         all_metrics = []
         for record_chunks in _chunks(requests, self.hparams.batch_size):
-            chunk_metrics = []
-            for i, request in enumerate(record_chunks):
-                chunk_metrics.append({
-                    'case_id': i,
-                    "requested_rewrite": request,
-                    "pre": compute_edit_quality(self.model, self.model_name, self.hparams, self.tok, request, self.hparams.device, test_generation=test_generation),
-                })
-
             start = time()
 
             edited_model, weights_copy = self.apply_algo(
@@ -244,10 +236,17 @@ class BaseEditor:
             LOG.info(f"Execution editing took {exec_time}")
 
             start = time()
+            chunk_metrics = []
             for i, request in enumerate(record_chunks):
 
-                chunk_metrics[i]["time"] = exec_time
-                chunk_metrics[i]["post"] = compute_edit_quality(edited_model, self.model_name, self.hparams, self.tok, request, self.hparams.device, test_generation=test_generation)
+                metrics = {
+                    'case_id': i,
+                    "requested_rewrite": request,
+                    "time": exec_time,
+                    "post": compute_edit_quality(edited_model, self.model_name, self.hparams, self.tok, request, self.hparams.device, test_generation=test_generation),
+                }
+
+                chunk_metrics.append(metrics)
 
             if sequential_edit:
                 self.model = edited_model
@@ -266,6 +265,8 @@ class BaseEditor:
                             nethook.get_parameter(self.model, k)[...] = v.to(f"cuda:{self.hparams.device}")
 
             for i, request in enumerate(record_chunks):
+                chunk_metrics[i]["pre"] = compute_edit_quality(self.model, self.model_name, self.hparams, self.tok, request, self.hparams.device, test_generation=test_generation)
+
                 if 'locality' in chunk_metrics[i]['post'].keys():
                     for locality_key in request['locality'].keys():
                         locality_result = []
@@ -636,4 +637,5 @@ class BaseEditor:
     ):
         metrics = self.apply_algo(datasets, self.hparams)
         return metrics
+
 

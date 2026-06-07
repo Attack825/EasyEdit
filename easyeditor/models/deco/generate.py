@@ -4,24 +4,23 @@ import numpy as np
 from torch.nn import functional as F
 # from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 from transformers.generation.utils import (
-    LogitsProcessorList,
-    StoppingCriteriaList,
-    GenerationConfig,
+    LogitsProcessorList, 
+    StoppingCriteriaList, 
+    GenerationConfig, 
     GenerateNonBeamOutput,
     GenerateDecoderOnlyOutput,
-    GenerateEncoderDecoderOutput,
+    GreedySearchOutput,
     GenerateOutput,
+    GreedySearchEncoderDecoderOutput,
+    GreedySearchDecoderOnlyOutput,
+    SampleDecoderOnlyOutput,
+    SampleEncoderDecoderOutput,
+    BeamSearchDecoderOnlyOutput,
+    BeamSearchEncoderDecoderOutput,
     GenerateBeamEncoderDecoderOutput,
-    GenerateBeamDecoderOnlyOutput,
+    GenerateBeamDecoderOnlyOutput
+    
 )
-
-GreedySearchDecoderOnlyOutput = GenerateDecoderOnlyOutput
-GreedySearchEncoderDecoderOutput = GenerateEncoderDecoderOutput
-SampleDecoderOnlyOutput = GenerateDecoderOnlyOutput
-SampleEncoderDecoderOutput = GenerateEncoderDecoderOutput
-BeamSearchDecoderOnlyOutput = GenerateBeamDecoderOnlyOutput
-BeamSearchEncoderDecoderOutput = GenerateBeamEncoderDecoderOutput
-GreedySearchOutput = GenerateNonBeamOutput
 # from transformers.generation.streamers import BaseStreamer
 # from transformers.modeling_utils import PreTrainedModel
 # from transformers.utils import logging
@@ -40,11 +39,7 @@ from torch import nn
 from transformers.cache_utils import StaticCache
 from transformers.integrations.deepspeed import is_deepspeed_zero3_enabled
 from transformers.utils import ModelOutput, logging
-try:
-    from transformers.generation.beam_search import BeamScorer, BeamSearchScorer
-except ModuleNotFoundError:
-    BeamScorer = object
-    BeamSearchScorer = None
+from transformers.generation.beam_search import BeamScorer, BeamSearchScorer
 from transformers.generation.configuration_utils import GenerationConfig, GenerationMode
 from transformers.generation.logits_process import (
     LogitsProcessorList,
@@ -1140,11 +1135,6 @@ def generate(
             **model_kwargs,
         )
     elif generation_mode == GenerationMode.BEAM_SEARCH:
-        if BeamSearchScorer is None:
-            raise ImportError(
-                "DECO beam search requires transformers.generation.beam_search, "
-                "which is not available in Transformers 5.x."
-            )
         beam_scorer = BeamSearchScorer(
                 batch_size=batch_size,
                 num_beams=generation_config.num_beams,

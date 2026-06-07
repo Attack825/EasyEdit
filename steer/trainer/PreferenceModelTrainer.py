@@ -136,7 +136,8 @@ class PreferenceModelTrainer(ModelTrainer):
             data_module["train_dataset"], shuffle=True, # we shuffle for examples.
             batch_size=self.hparams.batch_size, 
             collate_fn=data_module["data_collator"],
-            generator=g)
+            generator=g,
+            drop_last=True)
         return train_dataloader
 
     def _compute_metrics(self, chosen_logps, rejected_logps, ref_chosen_logps, ref_rejected_logps, 

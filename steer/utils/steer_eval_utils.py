@@ -5,9 +5,9 @@ import sys
 from openai import OpenAI
 from steer.evaluate.evaluate import Evaluator
 import re
-MODEL ='gpt-5-mini'
-BASE_URL="xxx"
-API_KEY="xxx"
+MODEL ='deepseek-v4-pro'
+BASE_URL="https://api.deepseek.com/v1"
+API_KEY="sk-d831a89719f94edfa0b0425fe3af873c"
 
 # T_GENERATE_STEERING_PROMPT = """Generate a prompt to guide a language model in producing responses. 
 # Objective: 

@@ -82,14 +82,12 @@ def compute_zs(
     # Set up an optimization over a latent vector that, when output at the
     # rewrite layer, i.e. hypothesized fact lookup location, will induce the
     # target token to be predicted at the final layer.
-    if hasattr(model.config, "n_embd"):
-        delta_attn = torch.zeros((model.config.n_embd,), requires_grad=True, device="cuda")
-        delta_mlp = torch.zeros((model.config.n_embd,), requires_grad=True, device="cuda")
-    elif hasattr(model.config, "hidden_size"):
+    if "neo" in model.config._name_or_path or "llama" in model.config._name_or_path:
         delta_attn = torch.zeros((model.config.hidden_size,), requires_grad=True, device="cuda")
         delta_mlp = torch.zeros((model.config.hidden_size,), requires_grad=True, device="cuda")
     else:
-        raise NotImplementedError
+        delta_attn = torch.zeros((model.config.n_embd,), requires_grad=True, device="cuda")
+        delta_mlp = torch.zeros((model.config.n_embd,), requires_grad=True, device="cuda")
     target_init_attn, target_init_mlp, kl_distr_init = None, None, None
 
     # Inserts new "delta" variable at the appropriate part of the computation
@@ -97,29 +95,25 @@ def compute_zs(
         nonlocal target_init_attn, target_init_mlp
 
         if cur_layer == hparams.mlp_module_tmp.format(layer):
-            hidden_state = nethook.get_hidden_state(cur_out)
             # Store initial value of the vector of interest
             if target_init_mlp is None:
                 print("Recording initial value of v* in mlp")
                 # Initial value is recorded for the clean sentence
-                target_init_mlp = hidden_state[0, lookup_idxs[0]].detach().clone()
+                target_init_mlp = cur_out[0, lookup_idxs[0]].detach().clone()
 
             # Add intervened delta
             for i, idx in enumerate(lookup_idxs):
-                hidden_state[i, idx, :] += delta_mlp
-            return nethook.replace_hidden_state(cur_out, hidden_state)
+                cur_out[i, idx, :] += delta_mlp
         if cur_layer == hparams.attn_module_tmp.format(layer):
-            hidden_state = nethook.get_hidden_state(cur_out)
             # Store initial value of the vector of interest
             if target_init_attn is None:
                 print("Recording initial value of v* in attn")
                 # Initial value is recorded for the clean sentence
-                target_init_attn = hidden_state[0, lookup_idxs[0]].detach().clone()
+                target_init_attn = cur_out[0, lookup_idxs[0]].detach().clone()
 
             # Add intervened delta
             for i, idx in enumerate(lookup_idxs):
-                hidden_state[i, idx, :] += delta_attn
-            return nethook.replace_hidden_state(cur_out, hidden_state)
+                cur_out[i, idx, :] += delta_attn
         return cur_out
 
     # Optimizer
@@ -158,7 +152,7 @@ def compute_zs(
                 kl_distr_init = kl_log_probs.detach().clone()
 
         # Compute loss on rewriting targets
-        full_repr = nethook.get_hidden_state(tr[hparams.layer_module_tmp.format(loss_layer)].output)[
+        full_repr = tr[hparams.layer_module_tmp.format(loss_layer)].output[0][
             : len(rewriting_prompts)
         ]
         log_probs = torch.log_softmax(ln_f(full_repr) @ lm_w + lm_b, dim=2)
@@ -292,12 +286,7 @@ def compute_z(
     # Set up an optimization over a latent vector that, when output at the
     # rewrite layer, i.e. hypothesized fact lookup location, will induce the
     # target token to be predicted at the final layer.
-    if hasattr(model.config, "n_embd"):
-        delta = torch.zeros((model.config.n_embd,), requires_grad=True, device="cuda")
-    elif hasattr(model.config, "hidden_size"):
-        delta = torch.zeros((model.config.hidden_size,), requires_grad=True, device="cuda")
-    else:
-        raise NotImplementedError
+    delta = torch.zeros((model.config.n_embd,), requires_grad=True, device="cuda")
     target_init, kl_distr_init = None, None
 
     # Inserts new "delta" variable at the appropriate part of the computation
@@ -305,18 +294,15 @@ def compute_z(
         nonlocal target_init
 
         if cur_layer == hparams.mlp_module_tmp.format(layer):
-            hidden_state = nethook.get_hidden_state(cur_out)
             # Store initial value of the vector of interest
             if target_init is None:
                 print("Recording initial value of v*")
                 # Initial value is recorded for the clean sentence
-                target_init = hidden_state[0, lookup_idxs[0]].detach().clone()
+                target_init = cur_out[0, lookup_idxs[0]].detach().clone()
 
             # Add intervened delta
             for i, idx in enumerate(lookup_idxs):
-                hidden_state[i, idx, :] += delta
-
-            return nethook.replace_hidden_state(cur_out, hidden_state)
+                cur_out[i, idx, :] += delta
 
         return cur_out
 
@@ -355,7 +341,7 @@ def compute_z(
                 kl_distr_init = kl_log_probs.detach().clone()
 
         # Compute loss on rewriting targets
-        full_repr = nethook.get_hidden_state(tr[hparams.layer_module_tmp.format(loss_layer)].output)[
+        full_repr = tr[hparams.layer_module_tmp.format(loss_layer)].output[0][
             : len(rewriting_prompts)
         ]
         log_probs = torch.log_softmax(ln_f(full_repr) @ lm_w + lm_b, dim=2)

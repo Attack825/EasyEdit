@@ -1,4 +1,4 @@
-CONCEPT_RELEVANCE_TEMPLATE = """[System]
+CONCEPT_RELEVANCE_TEMPLATE =  """[System]
 Please act as an impartial judge and evaluate whether the specified concept is \
 presented in the sentence fragment provided below. Focus solely on whether the concept is \
 clearly incorporated, without regard for grammar or logical coherence.
@@ -6,12 +6,10 @@ clearly incorporated, without regard for grammar or logical coherence.
 Begin your evaluation by providing a short explanation of whether the concept is \
 clearly incorporated. Point out references to the concept in the fragment, noting any \
 minimal or awkward incorporations. After providing your explanation, rate the concept's \
-relevance on a scale from 0 to 4, where 0 indicates the concept is not present at all, \
-1 indicates the concept is barely present or highly awkwardly incorporated, \
-2 indicates the concept is somewhat present with moderate but imperfect integration, \
-3 indicates the concept is well incorporated with strong integration, \
-and 4 indicates the concept is fully and flawlessly incorporated, with perfect and \
-natural integration. Provide your rating using this exact format: "Rating: [[score]]".
+relevance on a scale from 0 to 2, where 0 indicates the concept is not present at all, \
+1 indicates the concept is somewhat present but minimally or awkwardly incorporated, \
+and 2 indicates the concept is more fully and effectively incorporated, with stronger and \
+more natural integration. Provide your rating using this exact format: "Rating: [[score]]".
 
 [Concept Start]
 {concept}
@@ -34,11 +32,9 @@ informativeness.
 Begin your evaluation by providing a brief explanation of whether the \
 sentence is related to the instruction, and point out references \
 related to the instruction. After providing your explanation, rate the instruction \
-relevance on a scale from 0 to 4, where 0 indicates the sentence is completely unrelated to the \
-instruction, 1 indicates it is tangentially related or very indirectly relevant in terms of topic, \
-2 indicates it is moderately related but lacks direct focus, \
-3 indicates it is highly related and directly addresses most aspects of the instruction, \
-and 4 indicates it is completely and directly focused on addressing the instruction. Provide your rating \
+relevance on a scale from 0 to 2, where 0 indicates the sentence is unrelated to the \
+instruction, 1 indicates it is somewhat related but only minimally or indirectly relevant in terms of topic, \
+and 2 indicates it is more clearly and directly related to the instruction. Provide your rating \
 using this exact format: "Rating: [[score]]".
 
 [Instruction Start]
@@ -59,11 +55,9 @@ its completeness, relevance, coherence with any broader context, or informativen
 Begin your evaluation by briefly describing the fluency of the sentence, noting any \
 unnatural phrasing, awkward transitions, grammatical errors, or repetitive structures that \
 may hinder readability. After providing your explanation, rate the sentence's fluency \
-on a scale from 0 to 4, where 0 indicates the sentence is not fluent and highly unnatural \
-(e.g., incomprehensible or strictly repetitive), 1 indicates it has poor fluency with major \
-grammatical errors or highly awkward phrasing, 2 indicates it is adequately fluent but contains \
-noticeable errors or awkward transitions, 3 indicates it is highly fluent with only very minor imperfections, \
-and 4 indicates the sentence is perfectly fluent and reads completely naturally, like a native speaker. \
+on a scale from 0 to 2, where 0 indicates the sentence is not fluent and highly unnatural \
+(e.g., incomprehensible or repetitive), 1 indicates it is somewhat fluent but contains noticeable \
+errors or awkward phrasing, and 2 indicates the sentence is fluent and almost perfect. \
 Provide your rating using this exact format: "Rating: [[score]]".
 
 [Sentence Fragment Start]

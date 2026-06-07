@@ -63,7 +63,7 @@ class LogitLens:
 
         with torch.no_grad():
             for layer, (_, t) in enumerate(self.td.items()):
-                cur_out = nethook.get_hidden_state(t.output)
+                cur_out = t.output[0]
                 assert (
                     cur_out.size(0) == 1
                 ), "Make sure you're only running LogitLens on single generations only."

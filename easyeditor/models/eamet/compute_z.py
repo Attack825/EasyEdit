@@ -149,10 +149,9 @@ def compute_z(
     def edit_output_fn(cur_out, cur_layer):
         nonlocal target_init, target_constrain, delta
         if cur_layer == hparams.layer_module_tmp.format(layer):
-            hidden_state = nethook.get_hidden_state(cur_out)
             if target_init is None:
                 print("Recording initial value of v*")
-                target_init = hidden_state[0, lookup_idxs[0]].detach().clone()
+                target_init = cur_out[0][0, lookup_idxs[0]].detach().clone()
                 print(f"DEBUG INFO:layer_ks_norm:{layer_ks_norm}")
 
                 if hparams.delta_init == "target_init":
@@ -174,9 +173,7 @@ def compute_z(
                     
             # Add intervened delta
             for i, idx in enumerate(lookup_idxs):
-                hidden_state[i, idx, :] += delta
-
-            return nethook.replace_hidden_state(cur_out, hidden_state)
+                cur_out[0][i, idx, :] += delta
 
         return cur_out
 
@@ -218,7 +215,7 @@ def compute_z(
                 kl_distr_init = kl_log_probs.detach().clone()
 
         # Compute loss on rewriting targets
-        full_repr = nethook.get_hidden_state(tr[hparams.layer_module_tmp.format(loss_layer)].output)[
+        full_repr = tr[hparams.layer_module_tmp.format(loss_layer)].output[0][
             : len(rewriting_prompts)
         ]
 

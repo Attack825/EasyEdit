@@ -12,7 +12,7 @@ import os
 
 from steer.utils.steer_eval_utils import  color, process_orig, evaluate_steer_eval, load_steer_eval_datasets, get_prompt
 
-MODEL ='DeepSeek-V3.2'
+MODEL ='deepseek-v4-pro'
 
 @hydra.main(version_base='1.2', config_path='./hparams/Steer/experiment_hparams/steer_eval', config_name='steer_eval.yaml')
 def main(top_cfg: DictConfig):
@@ -108,7 +108,7 @@ def main(top_cfg: DictConfig):
                         vector_applier.hparams_dict[method].steer_vector_load_dir = f"{top_cfg.steer_vector_output_dirs[0]}/steer_eval_concept_{i}/pca_vector"
                     else:
                         vector_applier.hparams_dict[method].steer_vector_load_dir = f"{top_cfg.steer_vector_output_dirs[0]}/steer_eval_concept_{i}/caa_vector"
-                elif method == "reps_vector":
+                elif method == "reps":
                     vector_applier.hparams_dict[method].steer_vector_load_dir = f"{top_cfg.steer_vector_output_dirs[0]}/steer_eval_concept_{i}/reps_vector"
                 else:
                     raise ValueError(f"Unknown method: {method}")
@@ -129,7 +129,7 @@ def main(top_cfg: DictConfig):
             save_data = {
                 'concept_id': i,
                 'concept_name': concept_train_data[0]['concept'],
-                'llm_description': concept_train_data[0]['llm_description'],
+                'concept_description': concept_train_data[0]['concept_description'],
                 'generation_prompt': vector_applier.model.prompt if hasattr(vector_applier.model, 'prompt') else None,
                 'generated_results': generated_results
             }
