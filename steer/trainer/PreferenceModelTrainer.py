@@ -1,6 +1,6 @@
 
 from .BaseModelTrainer import ModelTrainer
-import torch, random
+import torch, random, os
 from tqdm.auto import tqdm
 import torch.nn.functional as F
 from typing import Tuple
@@ -160,6 +160,87 @@ class PreferenceModelTrainer(ModelTrainer):
         
         return metrics
 
+    def _save_training_metrics(self, train_metrics):
+        """Save training metrics to file and generate a convergence plot."""
+        if len(train_metrics['step']) == 0:
+            return
+
+        # determine save dir from hparams
+        save_dir = os.path.join(
+            self.hparams.steer_vector_output_dir,
+            f"reps_{self.hparams.intervention_method}"
+        )
+        os.makedirs(save_dir, exist_ok=True)
+
+        layers_str = '_'.join(str(l) for l in self.layers)
+        tag = f"layer_{layers_str}"
+
+        # save as npz for later analysis
+        np.savez(
+            os.path.join(save_dir, f"training_metrics_{tag}.npz"),
+            **{k: np.array(v) for k, v in train_metrics.items()}
+        )
+
+        # plot
+        try:
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+
+            steps = train_metrics['step']
+            fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+
+            # loss
+            axes[0, 0].plot(steps, train_metrics['loss'], color='#1f77b4')
+            axes[0, 0].set_title('Loss')
+            axes[0, 0].set_xlabel('Step'); axes[0, 0].set_ylabel('Loss')
+            axes[0, 0].grid(True, alpha=0.3)
+
+            # steer accuracy
+            axes[0, 1].plot(steps, train_metrics['steer_acc'], color='#2ca02c')
+            axes[0, 1].set_title('Steering Accuracy')
+            axes[0, 1].set_xlabel('Step'); axes[0, 1].set_ylabel('Accuracy')
+            axes[0, 1].set_ylim(0, 1.05)
+            axes[0, 1].axhline(y=0.5, color='gray', linestyle='--', alpha=0.5, label='random')
+            axes[0, 1].legend(); axes[0, 1].grid(True, alpha=0.3)
+
+            # reward margin
+            axes[0, 2].plot(steps, train_metrics['reward_margin'], color='#ff7f0e')
+            axes[0, 2].set_title('Reward Margin (chosen - rejected)')
+            axes[0, 2].set_xlabel('Step'); axes[0, 2].set_ylabel('Margin')
+            axes[0, 2].axhline(y=0, color='gray', linestyle='--', alpha=0.5)
+            axes[0, 2].grid(True, alpha=0.3)
+
+            # chosen & rejected rewards
+            axes[1, 0].plot(steps, train_metrics['chosen_reward'], color='#2ca02c', label='chosen')
+            axes[1, 0].plot(steps, train_metrics['rejected_reward'], color='#d62728', label='rejected')
+            axes[1, 0].set_title('Rewards')
+            axes[1, 0].set_xlabel('Step'); axes[1, 0].set_ylabel('Reward')
+            axes[1, 0].legend(); axes[1, 0].grid(True, alpha=0.3)
+
+            # chosen & rejected logps
+            axes[1, 1].plot(steps, train_metrics['chosen_logp'], color='#2ca02c', label='chosen')
+            axes[1, 1].plot(steps, train_metrics['rejected_logp'], color='#d62728', label='rejected')
+            axes[1, 1].set_title('Log Probabilities')
+            axes[1, 1].set_xlabel('Step'); axes[1, 1].set_ylabel('LogP')
+            axes[1, 1].legend(); axes[1, 1].grid(True, alpha=0.3)
+
+            # learning rate
+            axes[1, 2].plot(steps, train_metrics['lr'], color='#9467bd')
+            axes[1, 2].set_title('Learning Rate')
+            axes[1, 2].set_xlabel('Step'); axes[1, 2].set_ylabel('LR')
+            axes[1, 2].grid(True, alpha=0.3)
+
+            fig.suptitle(f'RePS Training — {tag}', fontsize=13, fontweight='bold')
+            plt.tight_layout()
+            plt.savefig(os.path.join(save_dir, f"training_curve_{tag}.png"), dpi=150, bbox_inches='tight')
+            plt.close()
+            print(f"[INFO] Training metrics saved to {save_dir}/training_metrics_{tag}.npz")
+            print(f"[INFO] Training curve saved to {save_dir}/training_curve_{tag}.png")
+        except Exception as e:
+            print(f"[WARNING] Failed to plot training curve: {e}")
+            print(f"[INFO] Training metrics saved to {save_dir}/training_metrics_{tag}.npz (no plot)")
+
     def train(self, examples, **kwargs):
 
         # prepare the data
@@ -187,6 +268,13 @@ class PreferenceModelTrainer(ModelTrainer):
 
         # training loop
         progress_bar, curr_step, logging_step = tqdm(range(num_training_steps), leave=True), 0, 0
+
+        # collect training metrics for later analysis
+        train_metrics = {
+            'step': [], 'loss': [], 'steer_acc': [],
+            'chosen_reward': [], 'rejected_reward': [], 'reward_margin': [],
+            'chosen_logp': [], 'rejected_logp': [], 'lr': [],
+        }
         
         for epoch in range(self.hparams.n_epochs):
             for step, batch in enumerate(train_dataloader):
@@ -359,9 +447,23 @@ class PreferenceModelTrainer(ModelTrainer):
                         "lr %.6f || loss %.6f || steer acc %.6f" % (
                             curr_lr, loss, metrics.get('rewards_train/steer_accuracies', 0.0))
                     )
+
+                    # record metrics for this step
+                    train_metrics['step'].append(curr_step)
+                    train_metrics['loss'].append(loss.cpu().float().item())
+                    train_metrics['steer_acc'].append(metrics.get('rewards_train/steer_accuracies', 0.0))
+                    train_metrics['chosen_reward'].append(metrics.get('rewards_train/steer_chosen_rewards', 0.0))
+                    train_metrics['rejected_reward'].append(metrics.get('rewards_train/steer_rejected_rewards', 0.0))
+                    train_metrics['reward_margin'].append(metrics.get('rewards_train/steer_margins', 0.0))
+                    train_metrics['chosen_logp'].append(metrics.get('logps_train/steer_chosen', 0.0))
+                    train_metrics['rejected_logp'].append(metrics.get('logps_train/steer_rejected', 0.0))
+                    train_metrics['lr'].append(curr_lr)
                     curr_step += 1
 
         progress_bar.close()
+
+        # save training metrics
+        self._save_training_metrics(train_metrics)
         
 
     def pre_compute_mean_activations(self, dump_dir, **kwargs):

@@ -43,6 +43,32 @@ def main(top_cfg: DictConfig):
                 eval_datasets.pop(result["concept_id"])
         print(f"{color.RED}Continuing generation for remaining {len(train_datasets)} concepts...{color.END}")
 
+    # -----------------------------------------------------------------------
+    # 单概念 / 指定概念过滤
+    #   concepts_id 在顶层配置（如 steer_eval_reps.yaml）中定义：
+    #     concepts_id: 0         → 只处理 concept 0
+    #     concepts_id: [0,1,2]   → 只处理 concept 0,1,2
+    #     concepts_id: null 或 -1 → 处理全部 concept
+    # -----------------------------------------------------------------------
+    if hasattr(top_cfg, 'concepts_id') and top_cfg.concepts_id is not None:
+        cid = top_cfg.concepts_id
+        if isinstance(cid, int) and cid >= 0:
+            cid = [cid]
+        if isinstance(cid, (list, tuple)):
+            cid_set = set(int(c) for c in cid)
+        elif hasattr(cid, '__iter__'):
+            cid_set = set(int(c) for c in cid)
+        else:
+            cid_set = set()
+
+        if cid_set:
+            original_keys = list(train_datasets.keys())
+            train_datasets = {k: v for k, v in train_datasets.items() if k in cid_set}
+            eval_datasets  = {k: v for k, v in eval_datasets.items()  if k in cid_set}
+            print(f"{color.YELLOW}Filtered to concepts: {sorted(cid_set)} → {len(train_datasets)} concepts remaining{color.END}")
+            if not train_datasets:
+                print(f"{color.RED}No matching concepts found! Requested: {sorted(cid_set)}, Available: {sorted(original_keys)}{color.END}")
+
 
     generate_vector = top_cfg.generate_vector
     generate_response = top_cfg.generate_response

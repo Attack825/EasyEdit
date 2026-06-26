@@ -32,7 +32,7 @@ from steer.evaluate.prompt_templates import (
     FLUENCY_TEMPLATE
 )
 
-API_KEY = "sk-d831a89719f94edfa0b0425fe3af873c"
+API_KEY = "sk-1773ab7746f149488a00c203e860ebee"
 BASE_URL = "https://api.deepseek.com/v1"
 openai.default_headers = {"x-foo": "true"}
 
